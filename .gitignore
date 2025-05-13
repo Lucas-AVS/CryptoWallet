@@ -1,0 +1,42 @@
+./Models
+./CryptoWalletApi
+./Data
+
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# ASP.NET Core secrets
+**/secrets.json
+
+# Logs
+*.log
+
+# Test results
+TestResults/
+*.trx
+
+# dotnet publish artifacts
+publish/
+
+# npm packages (caso use frontend junto)
+node_modules/
+
+# dotenv/local config
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
