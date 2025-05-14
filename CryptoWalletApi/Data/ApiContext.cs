@@ -23,12 +23,14 @@ namespace CryptoWalletApi.Data
             modelBuilder.Entity<Wallet>()
                 .HasMany(w => w.SentTransactions)
                 .WithOne(t => t.SenderWallet)
-                .HasForeignKey(t => t.SenderWalletId);
+                .HasForeignKey(t => t.SenderWalletId)
+                .OnDelete(DeleteBehavior.Restrict); // disable cascade delete for Wallet transactions
 
             modelBuilder.Entity<Wallet>()
                 .HasMany(w => w.ReceivedTransactions)
                 .WithOne(t => t.ReceiverWallet)
-                .HasForeignKey(t => t.ReceiverWalletId);
+                .HasForeignKey(t => t.ReceiverWalletId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // User
             modelBuilder.Entity<User>()
