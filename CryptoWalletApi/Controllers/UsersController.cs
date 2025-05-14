@@ -7,16 +7,17 @@ using CryptoWalletApi.Data;
 using CryptoWalletApi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using MinimalAPIDemo.Models;
 
 namespace CryptoWalletApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class UsersController : ControllerBase
     {
         private readonly ApiContext _context;
 
-        public UserController(ApiContext context)
+        public UsersController(ApiContext context)
         {
             _context = context;
         }
