@@ -18,6 +18,29 @@ namespace CryptoWalletApi.Data
         {
             // Configure the relationships and constraints here if needed
             base.OnModelCreating(modelBuilder);
+
+            // Wallet
+            modelBuilder.Entity<Wallet>()
+                .HasMany(w => w.SentTransactions)
+                .WithOne(t => t.SenderWallet)
+                .HasForeignKey(t => t.SenderWalletId);
+
+            modelBuilder.Entity<Wallet>()
+                .HasMany(w => w.ReceivedTransactions)
+                .WithOne(t => t.ReceiverWallet)
+                .HasForeignKey(t => t.ReceiverWalletId);
+
+            // User
+            modelBuilder.Entity<User>()
+                .HasMany(u => u.Wallets)
+                .WithOne(w => w.User)
+                .HasForeignKey(w => w.UserId);
+
+            // CryptoBalance
+            modelBuilder.Entity<CryptoBalance>()
+                .HasOne(cb => cb.Wallet)
+                .WithMany(w => w.CryptoBalances)
+                .HasForeignKey(cb => cb.WalletId);
         }
         public ApiContext(DbContextOptions<ApiContext> options) : base(options)
         {
