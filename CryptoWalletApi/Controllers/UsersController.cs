@@ -82,7 +82,7 @@ namespace CryptoWalletApi.Controllers
                 Id = HighId == null ? 1 : HighId.Value + 1,
                 Name = name,
                 Email = email,
-                Wallets = null,
+                Wallet = null,
                 PasswordHash = password // will be changed
 
             };

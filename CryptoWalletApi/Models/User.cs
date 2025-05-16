@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -11,7 +12,6 @@ namespace CryptoWalletApi.Models
         public string Name { get; set; }
         public string Email { get; set; }
         public string PasswordHash { get; set; }
-
-        public List<Wallet> Wallets { get; set; } = new();
+        public Wallet Wallet { get; set; }
     }
 }
