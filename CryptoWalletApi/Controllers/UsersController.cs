@@ -96,5 +96,94 @@ namespace CryptoWalletApi.Controllers
 
             return Created($"/api/friends/{user.Name}", response);
         }
+
+
+        [HttpPut]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        public IActionResult Edit([FromBody] int id, string? name, string? email, string? password)
+        {
+            var response = new ApiResponse()
+            {
+                IsSuccess = false,
+                StatusCode = HttpStatusCode.NotFound
+            };
+
+            var user = _context.Users.Find(id);
+
+            if (user is null) // ✅ Verifica se o usuário existe
+            {
+                return NotFound();
+            }
+
+
+            if (name != null)
+            {
+                user.Name = name;
+            }
+            if (email != null)
+            {
+                user.Email = email;
+            }
+            if (password != null)
+            {
+                user.PasswordHash = password;
+            }
+
+            response.IsSuccess = true;
+            response.Result = user;
+            response.StatusCode = HttpStatusCode.OK;
+
+            _context.SaveChanges();
+
+            return Ok(response);
+        }
+
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)] // invalid ID
+        public async Task<ActionResult<ApiResponse>> Delete(int id)
+        {
+            var response = new ApiResponse();
+
+            if (id <= 0)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.ErrorMessages = new List<string> { "Invalid id" };
+                return BadRequest(response);
+            }
+
+            var user = await _context.Users.FindAsync(id);
+
+            if (user == null)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.NotFound;
+                response.ErrorMessages = new List<string> { $"User id:{id} not found." };
+                return NotFound(response);
+            }
+
+            try
+            {
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+
+                response.IsSuccess = true;
+                response.StatusCode = HttpStatusCode.OK;
+                response.Result = new { DeletedUserId = id, Message = "User removed." };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, response);
+            }
+        }
     }
 }
+
