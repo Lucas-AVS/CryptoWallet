@@ -19,30 +19,28 @@ namespace CryptoWalletApi.Data
             // Configure the relationships and constraints here if needed
             base.OnModelCreating(modelBuilder);
 
-            // Wallet
-            modelBuilder.Entity<Wallet>()
-                .HasMany(w => w.SentTransactions)
-                .WithOne(t => t.SenderWallet)
+            // Transaction
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.SenderWallet)
+                .WithMany() // Sem navegação inversa
                 .HasForeignKey(t => t.SenderWalletId)
-                .OnDelete(DeleteBehavior.Restrict); // disable cascade delete for Wallet transactions
+                .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Wallet>()
-                .HasMany(w => w.ReceivedTransactions)
-                .WithOne(t => t.ReceiverWallet)
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.ReceiverWallet)
+                .WithMany() // Sem navegação inversa
                 .HasForeignKey(t => t.ReceiverWalletId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // User
             modelBuilder.Entity<User>()
-                .HasMany(u => u.Wallets)
-                .WithOne(w => w.User)
-                .HasForeignKey(w => w.UserId);
+                .HasIndex(u => u.Email)
+                .IsUnique();
 
             // CryptoBalance
             modelBuilder.Entity<CryptoBalance>()
-                .HasOne(cb => cb.Wallet)
-                .WithMany(w => w.CryptoBalances)
-                .HasForeignKey(cb => cb.WalletId);
+                .HasIndex(cb => new { cb.WalletId, cb.Currency })
+                .IsUnique(); // prevents duplicate coin criptocurrency in the same wallet
         }
         public ApiContext(DbContextOptions<ApiContext> options) : base(options)
         {
