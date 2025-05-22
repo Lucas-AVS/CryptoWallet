@@ -17,10 +17,13 @@ namespace CryptoWalletApi.Controllers
         private readonly ApiContext _context;
         private readonly IMapper _mapper;
 
-        public UsersController(ApiContext context, IMapper mapper)
+        private readonly ILogger<UsersController> _logger;
+
+        public UsersController(ApiContext context, IMapper mapper, ILogger<UsersController> logger)
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger;
         }
 
 
@@ -68,26 +71,78 @@ namespace CryptoWalletApi.Controllers
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
         public IActionResult Create([FromBody] UserCreateDTO request)
         {
-            var response = new ApiResponse()
-            {
-                IsSuccess = false,
-                StatusCode = HttpStatusCode.BadRequest
-            };
             if (!ModelState.IsValid)
             {
-                return BadRequest(response);
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = ModelState.Values.SelectMany(v => v.Errors)
+                                               .Select(e => e.ErrorMessage)
+                                               .ToList()
+                });
             }
 
-            var user = _mapper.Map<User>(request);
-            _context.Users.Add(user);
-            _context.SaveChanges();
+            try
+            {
+                var user = _mapper.Map<User>(request);
 
-            var userDto = _mapper.Map<UserResponseDTO>(user);
-            response.Result = userDto;
-            response.IsSuccess = true;
-            response.StatusCode = HttpStatusCode.Created;
+                var nextId = GetNextUserId();
 
-            return CreatedAtAction(nameof(Get), new { id = user.Id }, response);
+                user.Id = nextId;
+
+                var userWallet = new Wallet
+                {
+                    Id = nextId,
+                    UserId = user.Id,
+                    User = user
+                };
+
+                var defaultCrypto = new CryptoBalance
+                {
+                    Id = nextId,
+                    WalletId = userWallet.Id,
+                    Currency = "BTC",
+                    Amount = 2
+                };
+
+                userWallet.CryptoBalances.Add(defaultCrypto);
+                user.Wallet = userWallet;
+
+                _context.Users.Add(user);
+                _context.SaveChanges();
+
+                var userDto = _mapper.Map<UserResponseDTO>(user);
+
+                return CreatedAtAction(nameof(Get), new { id = user.Id },
+                    new ApiResponse
+                    {
+                        IsSuccess = true,
+                        StatusCode = HttpStatusCode.Created,
+                        Result = userDto
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating user");
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ApiResponse
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.InternalServerError,
+                        ErrorMessages = new List<string> { "An error occurred while creating the user." }
+                    });
+            }
+        }
+
+        private int GetNextUserId()
+        {
+            if (!_context.Users.Any())
+            {
+                return 1;
+            }
+
+            return _context.Users.Max(u => u.Id) + 1;
         }
 
 
