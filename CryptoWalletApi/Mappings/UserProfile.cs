@@ -14,9 +14,22 @@ namespace CryptoWalletApi.Mappings
         {
             CreateMap<User, UserCreateDTO>().ReverseMap();
 
-            CreateMap<User, UserResponseDTO>().ReverseMap();
+            CreateMap<User, UserResponseDTO>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.Name ?? src.Email))
+                .ReverseMap();
 
             CreateMap<User, UserUpdateDTO>().ReverseMap();
+
+            CreateMap<Wallet, WalletDTO>()
+                .ForMember(dest => dest.CryptoBalances,
+                           opt => opt.MapFrom(src => src.CryptoBalances))
+                .ReverseMap();
+
+            CreateMap<CryptoBalance, CryptoBalanceDTO>().ReverseMap();
+
+            CreateMap<Transaction, TransactionCreateDTO>().ReverseMap();
+
+            CreateMap<Transaction, TransactionResponseDTO>().ReverseMap();
         }
     }
 }
