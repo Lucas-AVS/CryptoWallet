@@ -29,45 +29,52 @@ namespace CryptoWalletApi.Controllers
 
 
         [HttpGet]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<List<UserResponseDTO>>), StatusCodes.Status200OK)]
         public IActionResult GetAll()
         {
             var users = _context.Users.ToList();
             var usersDto = _mapper.Map<List<UserResponseDTO>>(users);
-            var response = new ApiResponse()
+
+            var response = new ApiResponse<List<UserResponseDTO>>()
             {
                 IsSuccess = true,
                 Result = usersDto,
                 StatusCode = HttpStatusCode.OK
             };
+
             return Ok(response);
         }
 
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         public IActionResult Get(int id)
         {
             var user = _context.Users.FirstOrDefault(u => u.Id == id);
-            var userDto = _mapper.Map<UserResponseDTO>(user);
-            var response = new ApiResponse();
-            if (userDto is null)
+
+            if (user is null)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.NotFound;
-                response.ErrorMessages = new List<string> { $"User {id} not found" };
-                return NotFound(response);
+                return NotFound(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.NotFound,
+                    ErrorMessages = new List<string> { $"User {id} not found" }
+                });
             }
 
-            response.IsSuccess = true;
-            response.Result = userDto;
-            response.StatusCode = HttpStatusCode.OK;
-            return Ok(response);
+            var userDto = _mapper.Map<UserResponseDTO>(user);
+
+            return Ok(new ApiResponse<UserResponseDTO>
+            {
+                IsSuccess = true,
+                Result = userDto,
+                StatusCode = HttpStatusCode.OK
+            });
         }
 
 
         [HttpPost]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
         public IActionResult Create([FromBody] UserCreateDTO request)
         {
@@ -115,7 +122,7 @@ namespace CryptoWalletApi.Controllers
                 var userDto = _mapper.Map<UserResponseDTO>(user);
 
                 return CreatedAtAction(nameof(Get), new { id = user.Id },
-                    new ApiResponse
+                    new ApiResponse<UserResponseDTO>
                     {
                         IsSuccess = true,
                         StatusCode = HttpStatusCode.Created,
@@ -147,72 +154,72 @@ namespace CryptoWalletApi.Controllers
 
 
         [HttpPut]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
         public IActionResult Edit([FromBody] UserUpdateDTO request)
         {
-            var response = new ApiResponse();
-
             if (!ModelState.IsValid)
             {
-
-
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages = ["Dados inválidos."]
-                ;
-
-                return BadRequest(response);
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Invalid data." }
+                });
             }
 
             var user = _context.Users.Find(request.Id);
 
             if (user == null)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.NotFound;
-                response.ErrorMessages = ["Usuário não encontrado."];
-                return NotFound(response);
+                return NotFound(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.NotFound,
+                    ErrorMessages = new List<string> { "User not found" }
+                });
             }
 
-            // request => user
             _mapper.Map(request, user);
-
             _context.SaveChanges();
 
             var userDto = _mapper.Map<UserResponseDTO>(user);
 
-            response.IsSuccess = true;
-            response.StatusCode = HttpStatusCode.OK;
-            response.Result = userDto;
-            return Ok(response);
+            return Ok(new ApiResponse<UserResponseDTO>
+            {
+                IsSuccess = true,
+                StatusCode = HttpStatusCode.OK,
+                Result = userDto
+            });
         }
 
         [HttpDelete("{id:int}")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)] // invalid ID
-        public async Task<ActionResult<ApiResponse>> Delete(int id)
+        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
         {
-            var response = new ApiResponse();
-
             if (id <= 0)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages = new List<string> { "Invalid id" };
-                return BadRequest(response);
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Invalid id" }
+                });
             }
 
             var user = await _context.Users.FindAsync(id);
 
             if (user == null)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.NotFound;
-                response.ErrorMessages = new List<string> { $"User id:{id} not found." };
-                return NotFound(response);
+                return NotFound(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.NotFound,
+                    ErrorMessages = new List<string> { $"User id:{id} not found." }
+                });
             }
 
             try
@@ -220,18 +227,22 @@ namespace CryptoWalletApi.Controllers
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
 
-                response.IsSuccess = true;
-                response.StatusCode = HttpStatusCode.OK;
-                response.Result = new { DeletedUserId = id, Message = "User removed." };
-
-                return Ok(response);
+                return Ok(new ApiResponse<object>
+                {
+                    IsSuccess = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Result = new { DeletedUserId = id, Message = "User removed." }
+                });
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.InternalServerError;
-                response.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, response);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ApiResponse
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.InternalServerError,
+                        ErrorMessages = new List<string> { ex.Message }
+                    });
             }
         }
     }
