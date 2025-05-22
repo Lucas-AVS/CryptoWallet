@@ -14,5 +14,7 @@ namespace CryptoWalletApi.Models
         public User User { get; set; }
 
         public List<CryptoBalance> CryptoBalances { get; set; } = new();
+
+        public List<Transaction> Transactions { get; set; } = new();
     }
 }
