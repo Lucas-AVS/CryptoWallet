@@ -9,7 +9,7 @@ namespace CryptoWalletApi.DTO
     public class WalletDTO
     {
         public int Id { get; set; }
-        public List<CryptoBalanceDTO> CryptoBalances { get; set; } = new();
+        public List<BalanceResponseDTO> CryptoBalances { get; set; } = new();
 
     }
 }

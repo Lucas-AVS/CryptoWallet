@@ -25,7 +25,7 @@ namespace CryptoWalletApi.Mappings
                            opt => opt.MapFrom(src => src.CryptoBalances))
                 .ReverseMap();
 
-            CreateMap<CryptoBalance, CryptoBalanceDTO>().ReverseMap();
+            CreateMap<CryptoBalance, BalanceResponseDTO>().ReverseMap();
 
             CreateMap<Transaction, TransactionCreateDTO>().ReverseMap();
 
