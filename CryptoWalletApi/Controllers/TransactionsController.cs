@@ -23,20 +23,22 @@ namespace CryptoWalletApi.Controllers
 
 
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status404NotFound)]
         public IActionResult Get(int id)
         {
             var transaction = _context.Transactions.FirstOrDefault(u => u.Id == id);
-            var transactionDto = _mapper.Map<TransactionResponseDTO>(transaction);
-            var response = new ApiResponse();
-            if (transactionDto is null)
+            if (transaction is null)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.NotFound;
-                response.ErrorMessages = new List<string> { $"transaction {id} not found" };
-                return NotFound(response);
+                return NotFound(new ApiResponse<TransactionResponseDTO>
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.NotFound,
+                    ErrorMessages = new List<string> { $"transaction {id} not found" }
+                });
             }
+            var transactionDto = _mapper.Map<TransactionResponseDTO>(transaction);
+            var response = new ApiResponse<TransactionResponseDTO>();
 
             response.IsSuccess = true;
             response.Result = transactionDto;
@@ -45,15 +47,16 @@ namespace CryptoWalletApi.Controllers
         }
 
         [HttpPost]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status400BadRequest)]
         public IActionResult Create([FromBody] TransactionCreateDTO request)
         {
-            var response = new ApiResponse()
+            var response = new ApiResponse<TransactionResponseDTO>()
             {
                 IsSuccess = false,
                 StatusCode = HttpStatusCode.BadRequest
             };
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(response);
@@ -63,10 +66,18 @@ namespace CryptoWalletApi.Controllers
                 .Include(w => w.CryptoBalances)
                 .FirstOrDefault(w => w.Id == request.SenderWalletId);
 
-            var senderCryptoBalance = senderWallet.CryptoBalances.Where(cb => cb.Currency == request.Currency).FirstOrDefault();
-            if (senderCryptoBalance.Amount < request.Amount)
+            if (senderWallet == null)
             {
-                response.ErrorMessages = new List<string> { $"Sender doesn't have {request.Amount} {request.Currency}" };
+                response.ErrorMessages = new List<string> { $"Sender wallet {request.SenderWalletId} not found" };
+                return BadRequest(response);
+            }
+
+            var senderCryptoBalance = senderWallet.CryptoBalances
+                .FirstOrDefault(cb => cb.Currency == request.Currency);
+
+            if (senderCryptoBalance == null || senderCryptoBalance.Amount < request.Amount)
+            {
+                response.ErrorMessages = new List<string> { $"Sender doesn't have enough {request.Currency}" };
                 return BadRequest(response);
             }
 
@@ -74,18 +85,29 @@ namespace CryptoWalletApi.Controllers
                 .Include(w => w.CryptoBalances)
                 .FirstOrDefault(w => w.Id == request.ReceiverWalletId);
 
-            var receiverCryptoBalance = senderWallet.CryptoBalances.Where(cb => cb.Currency == request.Currency).FirstOrDefault();
+            if (receiverWallet == null)
+            {
+                response.ErrorMessages = new List<string> { $"Receiver wallet {request.ReceiverWalletId} not found" };
+                return BadRequest(response);
+            }
+
+            var receiverCryptoBalance = receiverWallet.CryptoBalances
+                .FirstOrDefault(cb => cb.Currency == request.Currency);
+
+            if (receiverCryptoBalance == null)
+            {
+                response.ErrorMessages = new List<string> { $"Receiver doesn't support {request.Currency}" };
+                return BadRequest(response);
+            }
 
             receiverCryptoBalance.Amount += request.Amount;
             senderCryptoBalance.Amount -= request.Amount;
 
             var transaction = new Transaction()
             {
-                Id = 1,
+                Id = GetNextTransactionId(),
                 SenderWalletId = senderWallet.Id,
-                SenderWallet = senderWallet,
                 ReceiverWalletId = receiverWallet.Id,
-                ReceiverWallet = receiverWallet,
                 Currency = request.Currency,
                 Amount = request.Amount,
                 Timestamp = DateTime.Now
@@ -94,7 +116,6 @@ namespace CryptoWalletApi.Controllers
             _context.Transactions.Add(transaction);
             _context.SaveChanges();
 
-            // var transaction = _mapper.Map<Transaction>(request);
             var transactionDto = _mapper.Map<TransactionResponseDTO>(transaction);
             response.Result = transactionDto;
             response.IsSuccess = true;

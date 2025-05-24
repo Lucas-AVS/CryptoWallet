@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace CryptoWalletApi.Models
 {
     public class ApiResponse<T>

@@ -47,14 +47,14 @@ namespace CryptoWalletApi.Controllers
 
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
         public IActionResult Get(int id)
         {
             var user = _context.Users.FirstOrDefault(u => u.Id == id);
 
             if (user is null)
             {
-                return NotFound(new ApiResponse
+                return NotFound(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.NotFound,
@@ -75,12 +75,12 @@ namespace CryptoWalletApi.Controllers
 
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
         public IActionResult Create([FromBody] UserCreateDTO request)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse
+                return BadRequest(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.BadRequest,
@@ -133,7 +133,7 @@ namespace CryptoWalletApi.Controllers
             {
                 _logger.LogError(ex, "Error creating user");
                 return StatusCode(StatusCodes.Status500InternalServerError,
-                    new ApiResponse
+                    new ApiResponse<UserResponseDTO>
                     {
                         IsSuccess = false,
                         StatusCode = HttpStatusCode.InternalServerError,
@@ -155,13 +155,13 @@ namespace CryptoWalletApi.Controllers
 
         [HttpPut]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
         public IActionResult Edit([FromBody] UserUpdateDTO request)
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new ApiResponse
+                return BadRequest(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.BadRequest,
@@ -173,7 +173,7 @@ namespace CryptoWalletApi.Controllers
 
             if (user == null)
             {
-                return NotFound(new ApiResponse
+                return NotFound(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.NotFound,
@@ -196,13 +196,13 @@ namespace CryptoWalletApi.Controllers
 
         [HttpDelete("{id:int}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
         {
             if (id <= 0)
             {
-                return BadRequest(new ApiResponse
+                return BadRequest(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.BadRequest,
@@ -214,7 +214,7 @@ namespace CryptoWalletApi.Controllers
 
             if (user == null)
             {
-                return NotFound(new ApiResponse
+                return NotFound(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
                     StatusCode = HttpStatusCode.NotFound,
@@ -237,7 +237,7 @@ namespace CryptoWalletApi.Controllers
             catch (Exception ex)
             {
                 return StatusCode(StatusCodes.Status500InternalServerError,
-                    new ApiResponse
+                    new ApiResponse<UserResponseDTO>
                     {
                         IsSuccess = false,
                         StatusCode = HttpStatusCode.InternalServerError,
