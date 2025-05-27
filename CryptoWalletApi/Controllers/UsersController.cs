@@ -4,6 +4,7 @@ using CryptoWalletApi.Data;
 using CryptoWalletApi.DTO;
 using CryptoWalletApi.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 
 
@@ -14,12 +15,12 @@ namespace CryptoWalletApi.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly ApiContext _context;
+        private readonly CryptoWalletDbContext _context;
         private readonly IMapper _mapper;
 
         private readonly ILogger<UsersController> _logger;
 
-        public UsersController(ApiContext context, IMapper mapper, ILogger<UsersController> logger)
+        public UsersController(CryptoWalletDbContext context, IMapper mapper, ILogger<UsersController> logger)
         {
             _context = context;
             _mapper = mapper;
@@ -30,9 +31,10 @@ namespace CryptoWalletApi.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<List<UserResponseDTO>>), StatusCodes.Status200OK)]
-        public IActionResult GetAll()
+
+        public async Task<ActionResult<ApiResponse<List<UserResponseDTO>>>> GetAll()
         {
-            var users = _context.Users.ToList();
+            var users = await _context.Users.ToListAsync();
             var usersDto = _mapper.Map<List<UserResponseDTO>>(users);
 
             var response = new ApiResponse<List<UserResponseDTO>>()
@@ -48,9 +50,9 @@ namespace CryptoWalletApi.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
-        public IActionResult Get(int id)
+        public async Task<ActionResult<ApiResponse<UserResponseDTO>>> Get(int id)
         {
-            var user = _context.Users.FirstOrDefault(u => u.Id == id);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
             if (user is null)
             {
@@ -76,7 +78,7 @@ namespace CryptoWalletApi.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
-        public IActionResult Create([FromBody] UserCreateDTO request)
+        public async Task<ActionResult<ApiResponse<UserResponseDTO>>> Create([FromBody] UserCreateDTO request)
         {
             if (!ModelState.IsValid)
             {
@@ -89,35 +91,33 @@ namespace CryptoWalletApi.Controllers
                                                .ToList()
                 });
             }
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            {
+                return BadRequest(new ApiResponse<UserResponseDTO>
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Email already in use" }
+                });
+            }
 
             try
             {
                 var user = _mapper.Map<User>(request);
-
-                var nextId = GetNextUserId();
-
-                user.Id = nextId;
-
-                var userWallet = new Wallet
+                user.Wallet = new Wallet
                 {
-                    Id = nextId,
-                    UserId = user.Id,
-                    User = user
+                    CryptoBalances = new List<CryptoBalance> // test funds 
+                        {
+                            new CryptoBalance
+                            {
+                                Currency = "BTC",
+                                Amount = 2
+                            }
+                        }
                 };
 
-                var defaultCrypto = new CryptoBalance
-                {
-                    Id = nextId,
-                    WalletId = userWallet.Id,
-                    Currency = "BTC",
-                    Amount = 2
-                };
-
-                userWallet.CryptoBalances.Add(defaultCrypto);
-                user.Wallet = userWallet;
-
-                _context.Users.Add(user);
-                _context.SaveChanges();
+                await _context.Users.AddAsync(user);
+                await _context.SaveChangesAsync();
 
                 var userDto = _mapper.Map<UserResponseDTO>(user);
 
@@ -137,27 +137,16 @@ namespace CryptoWalletApi.Controllers
                     {
                         IsSuccess = false,
                         StatusCode = HttpStatusCode.InternalServerError,
-                        ErrorMessages = new List<string> { "An error occurred while creating the user." }
+                        ErrorMessages = new List<string> { ex.Message }
                     });
             }
         }
-
-        private int GetNextUserId()
-        {
-            if (!_context.Users.Any())
-            {
-                return 1;
-            }
-
-            return _context.Users.Max(u => u.Id) + 1;
-        }
-
 
         [HttpPut]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
-        public IActionResult Edit([FromBody] UserUpdateDTO request)
+        public async Task<ActionResult<ApiResponse<UserResponseDTO>>> Edit([FromBody] UserUpdateDTO request)
         {
             if (!ModelState.IsValid)
             {
@@ -169,7 +158,7 @@ namespace CryptoWalletApi.Controllers
                 });
             }
 
-            var user = _context.Users.Find(request.Id);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null)
             {
@@ -182,7 +171,7 @@ namespace CryptoWalletApi.Controllers
             }
 
             _mapper.Map(request, user);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             var userDto = _mapper.Map<UserResponseDTO>(user);
 
@@ -195,13 +184,14 @@ namespace CryptoWalletApi.Controllers
         }
 
         [HttpDelete("{id:int}")]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
+        public async Task<ActionResult<ApiResponse<UserResponseDTO>>> Delete(int id)
         {
             if (id <= 0)
             {
+                _logger.LogWarning("Attempt to delete user with invalid ID: {UserId}", id);
                 return BadRequest(new ApiResponse<UserResponseDTO>
                 {
                     IsSuccess = false,
@@ -210,22 +200,24 @@ namespace CryptoWalletApi.Controllers
                 });
             }
 
-            var user = await _context.Users.FindAsync(id);
-
-            if (user == null)
-            {
-                return NotFound(new ApiResponse<UserResponseDTO>
-                {
-                    IsSuccess = false,
-                    StatusCode = HttpStatusCode.NotFound,
-                    ErrorMessages = new List<string> { $"User id:{id} not found." }
-                });
-            }
-
             try
             {
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    _logger.LogWarning("Attempt to delete non-existent user with ID: {UserId}", id);
+                    return NotFound(new ApiResponse<UserResponseDTO>
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.NotFound,
+                        ErrorMessages = new List<string> { $"User id:{id} not found." }
+                    });
+                }
+
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
+
+                _logger.LogInformation("User with ID: {UserId} successfully deleted.", id);
 
                 return Ok(new ApiResponse<object>
                 {
@@ -234,14 +226,26 @@ namespace CryptoWalletApi.Controllers
                     Result = new { DeletedUserId = id, Message = "User removed." }
                 });
             }
-            catch (Exception ex)
+            catch (DbUpdateException dbEx) // EFC Exceptions
             {
+                _logger.LogError(dbEx, "Database error occurred while deleting user {UserId}. Possible FK constraint?", id);
                 return StatusCode(StatusCodes.Status500InternalServerError,
                     new ApiResponse<UserResponseDTO>
                     {
                         IsSuccess = false,
                         StatusCode = HttpStatusCode.InternalServerError,
-                        ErrorMessages = new List<string> { ex.Message }
+                        ErrorMessages = new List<string> { "A database error occurred while trying to delete the user. It might be linked to other data." }
+                    });
+            }
+            catch (Exception ex) // Other erros
+            {
+                _logger.LogError(ex, "An unexpected error occurred while deleting user {UserId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ApiResponse<UserResponseDTO>
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.InternalServerError,
+                        ErrorMessages = new List<string> { $"An unexpected error occurred: {ex.Message}" }
                     });
             }
         }
