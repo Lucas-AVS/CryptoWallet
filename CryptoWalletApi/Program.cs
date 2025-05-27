@@ -7,8 +7,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddDbContext<ApiContext>(options =>
-    options.UseInMemoryDatabase("CryptoWalletDb")); ;
+var configuration = builder.Configuration;
+var dbPassword = configuration["DbPassword"]; // <<< Private pw
+if (string.IsNullOrEmpty(dbPassword))
+{
+    throw new InvalidOperationException("The database password(DbPassword) was not found in the configuration.Check user secrets or environment variables.");
+}
+var connectionStringBase = configuration.GetConnectionString("DbConnection"); // <<< DB
+var fullConnectionString = $"{connectionStringBase};Password={dbPassword}";
+
+builder.Services.AddDbContext<CryptoWalletDbContext>(options =>
+    options.UseNpgsql(fullConnectionString)); // <<< Connect using full string
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
