@@ -4,10 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using CryptoWalletApi.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace CryptoWalletApi.Data
 {
-    public class ApiContext : DbContext
+    public class CryptoWalletDbContext : DbContext
     {
         public DbSet<User> Users { get; set; }
         public DbSet<Wallet> Wallets { get; set; }
@@ -40,8 +41,9 @@ namespace CryptoWalletApi.Data
             modelBuilder.Entity<CryptoBalance>()
                 .HasIndex(cb => new { cb.WalletId, cb.Currency })
                 .IsUnique(); // prevents duplicate coin criptocurrency in the same wallet
+
         }
-        public ApiContext(DbContextOptions<ApiContext> options) : base(options)
+        public CryptoWalletDbContext(DbContextOptions<CryptoWalletDbContext> options) : base(options)
         {
 
         }
