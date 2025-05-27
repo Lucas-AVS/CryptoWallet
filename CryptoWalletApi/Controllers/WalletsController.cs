@@ -13,12 +13,12 @@ namespace CryptoWalletApi.Controllers
     [ApiController]
     public class WalletsController : ControllerBase
     {
-        private readonly ApiContext _context;
+        private readonly CryptoWalletDbContext _context;
         private readonly IMapper _mapper;
 
         private readonly ILogger<WalletsController> _logger;
 
-        public WalletsController(ApiContext context, IMapper mapper, ILogger<WalletsController> logger)
+        public WalletsController(CryptoWalletDbContext context, IMapper mapper, ILogger<WalletsController> logger)
         {
             _context = context;
             _mapper = mapper;
@@ -29,9 +29,9 @@ namespace CryptoWalletApi.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<List<WalletDTO>>), StatusCodes.Status200OK)]
-        public IActionResult GetAll()
+        public async Task<ActionResult<ApiResponse<WalletDTO>>> GetAll()
         {
-            var wallets = _context.Wallets.Include(w => w.CryptoBalances).ToList();
+            var wallets = await _context.Wallets.Include(w => w.CryptoBalances).ToListAsync();
             var walletsDto = _mapper.Map<List<WalletDTO>>(wallets);
 
             var response = new ApiResponse<List<WalletDTO>>()
@@ -47,11 +47,11 @@ namespace CryptoWalletApi.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(ApiResponse<WalletDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<WalletDTO>), StatusCodes.Status404NotFound)]
-        public IActionResult Get(int id)
+        public async Task<ActionResult<ApiResponse<WalletDTO>>> Get(int id)
         {
-            var wallet = _context.Wallets
+            var wallet = await _context.Wallets
                 .Include(w => w.CryptoBalances)
-                .FirstOrDefault(w => w.Id == id);
+                .FirstOrDefaultAsync(w => w.Id == id);
 
             if (wallet is null)
             {

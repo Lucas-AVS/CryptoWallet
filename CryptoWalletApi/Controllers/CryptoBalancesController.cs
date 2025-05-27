@@ -12,12 +12,12 @@ namespace CryptoWalletApi.Controllers
     [ApiController]
     public class CryptoBalancesController : ControllerBase
     {
-        private readonly ApiContext _context;
+        private readonly CryptoWalletDbContext _context;
         private readonly IMapper _mapper;
 
-        private readonly ILogger<UsersController> _logger;
+        private readonly ILogger<CryptoBalancesController> _logger;
 
-        public CryptoBalancesController(ApiContext context, IMapper mapper, ILogger<UsersController> logger)
+        public CryptoBalancesController(CryptoWalletDbContext context, IMapper mapper, ILogger<CryptoBalancesController> logger)
         {
             _context = context;
             _mapper = mapper;
@@ -27,11 +27,21 @@ namespace CryptoWalletApi.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<BalanceResponseDTO>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<BalanceResponseDTO>), StatusCodes.Status400BadRequest)]
-        public IActionResult AddOrUpdateCryptoBalance([FromBody] BalanceCreateDTO request)
+        public async Task<ActionResult<ApiResponse<BalanceResponseDTO>>> AddOrUpdateCryptoBalance([FromBody] BalanceCreateDTO request)
         {
-            var user = _context.Users.Include(u => u.Wallet)
+            if (string.IsNullOrWhiteSpace(request.Currency) || request.Amount <= 0)
+            {
+                return BadRequest(new ApiResponse<BalanceResponseDTO>
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Invalid currency or amount" }
+                });
+            }
+
+            var user = await _context.Users.Include(u => u.Wallet)
                                      .ThenInclude(w => w.CryptoBalances)
-                                     .FirstOrDefault(u => u.Id == request.UserId);
+                                     .FirstOrDefaultAsync(u => u.Id == request.UserId);
 
             if (user == null)
             {
@@ -54,7 +64,7 @@ namespace CryptoWalletApi.Controllers
                 });
             }
 
-            var currencyUpper = request.Currency.ToUpper();
+            var currencyUpper = request.Currency.ToUpperInvariant();
             var existingBalance = wallet.CryptoBalances
                                         .FirstOrDefault(cb => cb.Currency == currencyUpper);
 
@@ -62,7 +72,7 @@ namespace CryptoWalletApi.Controllers
             {
                 existingBalance.Amount += request.Amount;
 
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
 
                 var updatedDto = _mapper.Map<BalanceResponseDTO>(existingBalance);
 
@@ -83,7 +93,7 @@ namespace CryptoWalletApi.Controllers
                 };
 
                 _context.CryptoBalances.Add(newBalance);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
 
                 var newDto = _mapper.Map<BalanceResponseDTO>(newBalance);
 

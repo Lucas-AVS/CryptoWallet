@@ -12,10 +12,10 @@ namespace CryptoWalletApi.Controllers
     [ApiController]
     public class TransactionsController : ControllerBase
     {
-        private readonly ApiContext _context;
+        private readonly CryptoWalletDbContext _context;
         private readonly IMapper _mapper;
 
-        public TransactionsController(ApiContext context, IMapper mapper)
+        public TransactionsController(CryptoWalletDbContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
@@ -25,9 +25,9 @@ namespace CryptoWalletApi.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status404NotFound)]
-        public IActionResult Get(int id)
+        public async Task<ActionResult<ApiResponse<TransactionResponseDTO>>> Get(int id)
         {
-            var transaction = _context.Transactions.FirstOrDefault(u => u.Id == id);
+            var transaction = await _context.Transactions.FirstOrDefaultAsync(u => u.Id == id);
             if (transaction is null)
             {
                 return NotFound(new ApiResponse<TransactionResponseDTO>
@@ -49,7 +49,7 @@ namespace CryptoWalletApi.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ApiResponse<TransactionResponseDTO>), StatusCodes.Status400BadRequest)]
-        public IActionResult Create([FromBody] TransactionCreateDTO request)
+        public async Task<ActionResult<ApiResponse<TransactionResponseDTO>>> Create([FromBody] TransactionCreateDTO request)
         {
             var response = new ApiResponse<TransactionResponseDTO>()
             {
@@ -62,9 +62,9 @@ namespace CryptoWalletApi.Controllers
                 return BadRequest(response);
             }
 
-            var senderWallet = _context.Wallets
+            var senderWallet = await _context.Wallets
                 .Include(w => w.CryptoBalances)
-                .FirstOrDefault(w => w.Id == request.SenderWalletId);
+                .FirstOrDefaultAsync(w => w.Id == request.SenderWalletId);
 
             if (senderWallet == null)
             {
@@ -81,9 +81,9 @@ namespace CryptoWalletApi.Controllers
                 return BadRequest(response);
             }
 
-            var receiverWallet = _context.Wallets
+            var receiverWallet = await _context.Wallets
                 .Include(w => w.CryptoBalances)
-                .FirstOrDefault(w => w.Id == request.ReceiverWalletId);
+                .FirstOrDefaultAsync(w => w.Id == request.ReceiverWalletId);
 
             if (receiverWallet == null)
             {
@@ -105,16 +105,15 @@ namespace CryptoWalletApi.Controllers
 
             var transaction = new Transaction()
             {
-                Id = GetNextTransactionId(),
                 SenderWalletId = senderWallet.Id,
                 ReceiverWalletId = receiverWallet.Id,
                 Currency = request.Currency,
                 Amount = request.Amount,
-                Timestamp = DateTime.Now
+                Timestamp = DateTime.UtcNow
             };
 
-            _context.Transactions.Add(transaction);
-            _context.SaveChanges();
+            await _context.Transactions.AddAsync(transaction);
+            await _context.SaveChangesAsync();
 
             var transactionDto = _mapper.Map<TransactionResponseDTO>(transaction);
             response.Result = transactionDto;
@@ -122,16 +121,6 @@ namespace CryptoWalletApi.Controllers
             response.StatusCode = HttpStatusCode.Created;
 
             return CreatedAtAction(nameof(Get), new { id = transaction.Id }, response);
-        }
-
-        private int GetNextTransactionId()
-        {
-            if (!_context.Transactions.Any())
-            {
-                return 1;
-            }
-
-            return _context.Transactions.Max(u => u.Id) + 1;
         }
     }
 
