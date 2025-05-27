@@ -1,17 +1,21 @@
-using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace CryptoWalletApi.Models
+namespace CryptoWalletApi.Models;
+
+[Table("user")]
+public class User
 {
-    public class User
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-        public Wallet Wallet { get; set; }
-    }
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    [Column("id")]
+    public int Id { get; set; }
+    [Column("name")]
+    public string Name { get; set; }
+    [Column("email")]
+    public string Email { get; set; }
+    [Column("password")]
+    public string Password { get; set; }
+
+    public Wallet Wallet { get; set; }
 }
