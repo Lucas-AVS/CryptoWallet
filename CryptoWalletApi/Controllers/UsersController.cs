@@ -5,19 +5,16 @@ using CryptoWalletApi.DTO;
 using CryptoWalletApi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
-
-
-
 namespace CryptoWalletApi.Controllers
 {
+    using BCrypt.Net;
+
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
     {
         private readonly CryptoWalletDbContext _context;
         private readonly IMapper _mapper;
-
         private readonly ILogger<UsersController> _logger;
 
         public UsersController(CryptoWalletDbContext context, IMapper mapper, ILogger<UsersController> logger)
@@ -104,6 +101,8 @@ namespace CryptoWalletApi.Controllers
             try
             {
                 var user = _mapper.Map<User>(request);
+                string passwordHash = BCrypt.HashPassword(user.Password);
+                user.Password = passwordHash;
                 user.Wallet = new Wallet
                 {
                     CryptoBalances = new List<CryptoBalance> // test funds 
@@ -249,6 +248,65 @@ namespace CryptoWalletApi.Controllers
                     });
             }
         }
+
+        [HttpPost("login")]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse<UserResponseDTO>), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<UserResponseDTO>>> Login([FromBody] UserLoginDTO request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ApiResponse<UserResponseDTO>
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = ModelState.Values.SelectMany(v => v.Errors)
+                                               .Select(e => e.ErrorMessage)
+                                               .ToList()
+                });
+            }
+
+            try
+            {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+
+                // compare PWhashes
+                if (user == null || !BCrypt.Verify(request.Password, user.Password))
+                {
+                    _logger.LogWarning("Login failed for email: {Email}", request.Email);
+                    return Unauthorized(new ApiResponse<UserResponseDTO>
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.Unauthorized,
+                        ErrorMessages = new List<string> { "Invalid email or password." }
+                    });
+                }
+
+                var userDto = _mapper.Map<UserResponseDTO>(user);
+
+                _logger.LogInformation("User logged in successfully: {Email}", request.Email);
+
+                // TODO: implement creation and processing of JWT tokens.
+
+                return Ok(new ApiResponse<UserResponseDTO>
+                {
+                    IsSuccess = true,
+                    StatusCode = HttpStatusCode.OK,
+                    Result = userDto
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred during login for email: {Email}", request.Email);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new ApiResponse<UserResponseDTO>
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.InternalServerError,
+                        ErrorMessages = new List<string> { "An internal server error occurred." }
+                    });
+            }
+        }
     }
 }
-
