@@ -96,8 +96,21 @@ namespace CryptoWalletApi.Controllers
 
             if (receiverCryptoBalance == null)
             {
+
                 response.ErrorMessages = new List<string> { $"Receiver doesn't support {request.Currency}" };
                 return BadRequest(response);
+            }
+
+            if (receiverCryptoBalance == null)
+            // If the user does not have the currency, an empty(0) "cryptobalance" is created before receiving the transfer
+            {
+                receiverCryptoBalance = new CryptoBalance
+                {
+                    Currency = request.Currency.ToUpperInvariant(),
+                    Amount = 0, //
+                    WalletId = receiverWallet.Id
+                };
+                receiverWallet.CryptoBalances.Add(receiverCryptoBalance);
             }
 
             receiverCryptoBalance.Amount += request.Amount;
